@@ -22,6 +22,7 @@
     <module>wiki-webui</module>
     <module>wiki-extension</module>
     <module>wiki-upgrade-plugins</module>
+    <module>wiki-data-converter</module>
   </modules>
   <scm>
     <connection>scm:git:git://github.com/exoplatform/wiki.git</connection>
