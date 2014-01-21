@@ -17,6 +17,7 @@
 package org.exoplatform.wiki.data.converter;
 
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 
 import javax.annotation.security.RolesAllowed;
 import javax.jcr.Node;
@@ -32,15 +33,19 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.chromattic.api.ChromatticSession;
+import org.exoplatform.portal.config.UserACL;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
+import org.exoplatform.wiki.mow.api.Page;
 import org.exoplatform.wiki.mow.api.WikiNodeType;
+import org.exoplatform.wiki.mow.api.WikiType;
 import org.exoplatform.wiki.mow.core.api.MOWService;
 import org.exoplatform.wiki.mow.core.api.wiki.AttachmentImpl;
 import org.exoplatform.wiki.mow.core.api.wiki.PageImpl;
+import org.exoplatform.wiki.rendering.util.Utils;
 import org.exoplatform.wiki.service.WikiResource;
 
 /**
@@ -95,17 +100,23 @@ public class WikiDataConverter implements ResourceContainer {
   @RolesAllowed("users")
   public Response convertData(@QueryParam("srcWs") String srcWs,
                               @QueryParam("srcPath") String srcPath,
-                              @QueryParam("desWs") String desWs,
-                              @QueryParam("desPath") String desPath) {
+                              @QueryParam("space") String space) {
     try {
+      long startTime = System.currentTimeMillis();
       Node sourceNode = getNode(srcWs, srcPath);
-      Node targetNode = getNode(desWs, desPath);
+      String prettyName = createSpace(space);
+      createWikiHome(prettyName);
+      Node targetNode = getTargetNode(prettyName);
       createWikiPages(sourceNode, targetNode);
+      long time = System.currentTimeMillis() - startTime;
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Converting time = " + (time/1000.0) + " (s) = " + (time/1000.0/60) + " (minutes)");
+      }
       return Response.ok("data converted successfully!", MediaType.TEXT_PLAIN).cacheControl(cc).build();
     } catch (Exception e) {
       if (LOG.isErrorEnabled()) {
         LOG.error("Can not convert wiki data from " + srcWs + ":" + srcPath +
-                  " to " + desWs + ":" + desPath, e);
+                  " to " + space + " space", e);
       }
       return Response.serverError().entity(e.getMessage()).cacheControl(cc).build();
     }
@@ -120,9 +131,102 @@ public class WikiDataConverter implements ResourceContainer {
    * @throws RepositoryException
    */
   private Node getNode(String ws, String path) throws PathNotFoundException, RepositoryException {
-//    SessionProvider sProvider = sessionProviderService_.getSystemSessionProvider(null);
-//    Session session = sProvider.getSession(ws, repoService_.getCurrentRepository());
     return (Node) mowService_.getSession().getJCRSession().getItem(path);
+  }
+  
+  /**
+   * Creates new space
+   * @param spaceName name of the space
+   * @return pretty name of new created space
+   * @throws ClassNotFoundException
+   * @throws IllegalArgumentException
+   * @throws SecurityException
+   * @throws InstantiationException
+   * @throws IllegalAccessException
+   * @throws InvocationTargetException
+   * @throws NoSuchMethodException
+   * @throws NoSuchFieldException
+   */
+  private String createSpace(String spaceName) 
+      throws ClassNotFoundException, IllegalArgumentException, SecurityException, 
+             InstantiationException, IllegalAccessException, InvocationTargetException, 
+             NoSuchMethodException, NoSuchFieldException {
+    Class spaceServiceClass = Class.forName("org.exoplatform.social.core.space.spi.SpaceService");
+    Object spaceService = Utils.getService(spaceServiceClass);
+    //check if space already exists
+    Object spaceObj = null;
+    try {
+      //get space pretty name
+      Class spaceUtilsClass = Class.forName("org.exoplatform.social.core.space.SpaceUtils");
+      Object prettyName = spaceUtilsClass.getDeclaredMethod("cleanString", String.class).invoke(null, spaceName);
+      spaceObj = spaceServiceClass.getDeclaredMethod("getSpaceByPrettyName", String.class)
+                                         .invoke(spaceService, (String)prettyName);
+    } catch (IllegalArgumentException e) {
+      spaceObj = null;
+    } catch (SecurityException e) {
+      spaceObj = null;
+    } catch (IllegalAccessException e) {
+      spaceObj = null;
+    } catch (InvocationTargetException e) {
+      spaceObj = null;
+    } catch (NoSuchMethodException e) {
+      spaceObj = null;
+    }
+    Class spaceClass = Class.forName("org.exoplatform.social.core.space.model.Space");
+    if (spaceObj != null) {
+      return (String)spaceClass.getDeclaredMethod("getPrettyName").invoke(spaceObj);
+    }
+    //create new space
+    Class defaultSpaceApplicationHandlerClass 
+                     = Class.forName("org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler");
+    spaceObj = spaceClass.getConstructor().newInstance();
+    //space.setDisplayName(spaceName);
+    spaceClass.getDeclaredMethod("setDisplayName", String.class).invoke(spaceObj, spaceName);
+    //space.setPrettyName(spaceName);
+    spaceClass.getDeclaredMethod("setPrettyName", String.class).invoke(spaceObj, spaceName);
+    //space.setGroupId("/spaces/" + space.getPrettyName());
+    spaceClass.getDeclaredMethod("setGroupId", String.class).invoke(spaceObj, "/spaces/" + spaceName);
+    //space.setRegistration(Space.OPEN);
+    spaceClass.getDeclaredMethod("setRegistration", String.class)
+              .invoke(spaceObj, spaceClass.getDeclaredField("OPEN").get(null));
+    //space.setDescription(lorem.getWords(10));
+    spaceClass.getDeclaredMethod("setDescription", String.class).invoke(spaceObj, "");
+    //space.setType(DefaultSpaceApplicationHandler.NAME);
+    spaceClass.getDeclaredMethod("setType", String.class)
+              .invoke(spaceObj, defaultSpaceApplicationHandlerClass.getField("NAME").get(null));
+    //space.setVisibility(Space.PRIVATE);
+    spaceClass.getDeclaredMethod("setVisibility", String.class)
+              .invoke(spaceObj, spaceClass.getDeclaredField("PUBLIC").get(null));
+    //space.setRegistration(Space.OPEN);
+    spaceClass.getDeclaredMethod("setRegistration", String.class)
+              .invoke(spaceObj, spaceClass.getDeclaredField("OPEN").get(null));
+    //space.setPriority(Space.INTERMEDIATE_PRIORITY);
+    spaceClass.getDeclaredMethod("setPriority", String.class)
+              .invoke(spaceObj, spaceClass.getDeclaredField("INTERMEDIATE_PRIORITY").get(null));
+
+    spaceObj = spaceServiceClass.getDeclaredMethod("createSpace", spaceClass, String.class)
+                       .invoke(spaceService, spaceObj, Utils.getService(UserACL.class).getSuperUser());
+    return (String)spaceClass.getDeclaredMethod("getPrettyName").invoke(spaceObj);
+  }
+  
+  /**
+   * Creates the wikiHome page
+   * @param spaceName name of the space
+   */
+  private Page createWikiHome(String spaceName) {
+    return mowService_.getModel().getWikiStore().getWikiContainer(WikiType.GROUP)
+                      .getWiki("/spaces/" + spaceName, true)
+                      .getWikiHome();
+  }
+  
+  /**
+   * Gets the wiki home node of given space 
+   * @param spaceName name of the space
+   * @return the wiki home node
+   * @throws Exception
+   */
+  private Node getTargetNode(String spaceName) throws Exception {
+    return createWikiHome(spaceName).getJCRPageNode();
   }
   
   private PageImpl createWikiPages(Node src, Node target) throws Exception {
@@ -143,30 +247,35 @@ public class WikiDataConverter implements ResourceContainer {
     while (nodeIter.hasNext()) {
       Node childNode = nodeIter.nextNode();
       if (childNode.isNodeType(NT_FOLDER)) {//create sub page
-        PageImpl childPage = session.create(PageImpl.class, childNode.getName());
-        targetPage.addWikiPage(childPage);
-        childPage.getContent().setText("");
-        if (childNode.hasProperty(EXO_OWNER)) {
-          childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
+        PageImpl childPage = targetPage.getWikiPage(childNode.getName());
+        if (childPage == null) {
+          childPage = session.create(PageImpl.class, childNode.getName());
+          targetPage.addWikiPage(childPage);
+          childPage.getContent().setText("");
+          if (childNode.hasProperty(EXO_OWNER)) {
+            childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
+          }
+          childPage.makeVersionable();
+          childPage.checkin();
+          childPage.checkout();
+          session.save();
         }
-        childPage.makeVersionable();
-        childPage.checkin();
-        childPage.checkout();
-        session.save();
         createWikiPages(childNode, childPage.getJCRPageNode());
       } else if (childNode.isNodeType(NT_FILE) && !WikiNodeType.Definition.CONTENT.equals(childNode.getName())) {
-        //create attachment
-        InputStream is = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
-                                  .getProperty(WikiNodeType.Definition.DATA).getStream();
-        String mimeType = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
-                                   .getProperty(JCR_MIMETYPE).getString();
-        byte[] imageBytes = new byte[is.available()];
-        is.read(imageBytes);
-        WikiResource attachfile = new WikiResource(mimeType, "UTF-8", imageBytes);
-        attachfile.setName(childNode.getName());
-        
-        AttachmentImpl att = targetPage.createAttachment(attachfile.getName(), attachfile);
-        session.save();
+        if (targetPage.getAttachment(childNode.getName()) == null) {
+          //create attachment
+          InputStream is = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
+                                    .getProperty(WikiNodeType.Definition.DATA).getStream();
+          String mimeType = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
+                                     .getProperty(JCR_MIMETYPE).getString();
+          byte[] imageBytes = new byte[is.available()];
+          is.read(imageBytes);
+          WikiResource attachfile = new WikiResource(mimeType, "UTF-8", imageBytes);
+          attachfile.setName(childNode.getName());
+          
+          AttachmentImpl att = targetPage.createAttachment(attachfile.getName(), attachfile);
+          session.save();
+        }
       }
     }
     return targetPage;
