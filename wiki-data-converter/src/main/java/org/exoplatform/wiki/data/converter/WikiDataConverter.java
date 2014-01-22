@@ -18,6 +18,8 @@ package org.exoplatform.wiki.data.converter;
 
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import javax.annotation.security.RolesAllowed;
 import javax.jcr.Node;
@@ -229,52 +231,63 @@ public class WikiDataConverter implements ResourceContainer {
     return createWikiHome(spaceName).getJCRPageNode();
   }
   
-  private PageImpl createWikiPages(Node src, Node target) throws Exception {
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Converting " + src.getPath() + " ...");
-    }
+  private PageImpl createWikiPages(Node srcNode, Node targetNode) throws Exception {
     ChromatticSession session = mowService_.getSession();
-    PageImpl targetPage = session.findByNode(PageImpl.class, target);
-    if (src.hasNode(WikiNodeType.Definition.CONTENT) && target.hasNode(WikiNodeType.Definition.CONTENT)) {
-      //create wiki page content
-      targetPage.getContent().setText(
-        src.getNode(WikiNodeType.Definition.CONTENT)
-           .getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
-           .getProperty(WikiNodeType.Definition.DATA).getString());
-      session.save();
-    }
-    NodeIterator nodeIter = src.getNodes();
-    while (nodeIter.hasNext()) {
-      Node childNode = nodeIter.nextNode();
-      if (childNode.isNodeType(NT_FOLDER)) {//create sub page
-        PageImpl childPage = targetPage.getWikiPage(childNode.getName());
-        if (childPage == null) {
-          childPage = session.create(PageImpl.class, childNode.getName());
-          targetPage.addWikiPage(childPage);
-          childPage.getContent().setText("");
-          if (childNode.hasProperty(EXO_OWNER)) {
-            childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
+    PageImpl targetPage = null;
+    Queue<Node> srcs = new LinkedList<Node>();
+    srcs.add(srcNode);
+    Queue<Node> targets = new LinkedList<Node>();
+    targets.add(targetNode);
+    while (!srcs.isEmpty()) {
+      Node src = srcs.poll();
+      Node target = targets.poll();
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Converting " + src.getPath() + " ...");
+      }
+      targetPage = session.findByNode(PageImpl.class, target);
+      if (src.hasNode(WikiNodeType.Definition.CONTENT) && target.hasNode(WikiNodeType.Definition.CONTENT)) {
+        //create wiki page content
+        targetPage.getContent().setText(
+          src.getNode(WikiNodeType.Definition.CONTENT)
+             .getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
+             .getProperty(WikiNodeType.Definition.DATA).getString());
+        session.save();
+      }
+      NodeIterator nodeIter = src.getNodes();
+      while (nodeIter.hasNext()) {
+        Node childNode = nodeIter.nextNode();
+        if (childNode.isNodeType(NT_FOLDER)) {//create sub page
+          PageImpl childPage = targetPage.getWikiPage(childNode.getName());
+          if (childPage == null) {
+            childPage = session.create(PageImpl.class, childNode.getName());
+            targetPage.addWikiPage(childPage);
+            childPage.getContent().setText("");
+            if (childNode.hasProperty(EXO_OWNER)) {
+              childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
+            }
+            childPage.makeVersionable();
+//            childPage.checkin();
+//            childPage.checkout();
+            session.save();
           }
-          childPage.makeVersionable();
-          childPage.checkin();
-          childPage.checkout();
-          session.save();
-        }
-        createWikiPages(childNode, childPage.getJCRPageNode());
-      } else if (childNode.isNodeType(NT_FILE) && !WikiNodeType.Definition.CONTENT.equals(childNode.getName())) {
-        if (targetPage.getAttachment(childNode.getName()) == null) {
-          //create attachment
-          InputStream is = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
-                                    .getProperty(WikiNodeType.Definition.DATA).getStream();
-          String mimeType = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
-                                     .getProperty(JCR_MIMETYPE).getString();
-          byte[] imageBytes = new byte[is.available()];
-          is.read(imageBytes);
-          WikiResource attachfile = new WikiResource(mimeType, "UTF-8", imageBytes);
-          attachfile.setName(childNode.getName());
-          
-          AttachmentImpl att = targetPage.createAttachment(attachfile.getName(), attachfile);
-          session.save();
+          //createWikiPages(childNode, childPage.getJCRPageNode());
+          srcs.add(childNode);
+          targets.add(childPage.getJCRPageNode());
+        } else if (childNode.isNodeType(NT_FILE) && !WikiNodeType.Definition.CONTENT.equals(childNode.getName())) {
+          if (targetPage.getAttachment(childNode.getName()) == null) {
+            //create attachment
+            InputStream is = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
+                                      .getProperty(WikiNodeType.Definition.DATA).getStream();
+            String mimeType = childNode.getNode(WikiNodeType.Definition.ATTACHMENT_CONTENT)
+                                       .getProperty(JCR_MIMETYPE).getString();
+            byte[] imageBytes = new byte[is.available()];
+            is.read(imageBytes);
+            WikiResource attachfile = new WikiResource(mimeType, "UTF-8", imageBytes);
+            attachfile.setName(childNode.getName());
+            
+            AttachmentImpl att = targetPage.createAttachment(attachfile.getName(), attachfile);
+            session.save();
+          }
         }
       }
     }
