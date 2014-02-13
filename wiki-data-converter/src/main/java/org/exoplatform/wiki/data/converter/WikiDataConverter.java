@@ -258,18 +258,18 @@ public class WikiDataConverter implements ResourceContainer {
         Node childNode = nodeIter.nextNode();
         if (childNode.isNodeType(NT_FOLDER)) {//create sub page
           PageImpl childPage = targetPage.getWikiPage(childNode.getName());
-          if (childPage == null) {
-            childPage = session.create(PageImpl.class, childNode.getName());
-            targetPage.addWikiPage(childPage);
-            childPage.getContent().setText("");
-            if (childNode.hasProperty(EXO_OWNER)) {
-              childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
-            }
-            childPage.makeVersionable();
+          String childNodeName = (childPage == null)? childNode.getName() : 
+                                                      childNode.getName() + "exoint"; 
+          childPage = session.create(PageImpl.class, childNodeName);
+          targetPage.addWikiPage(childPage);
+          childPage.getContent().setText("");
+          if (childNode.hasProperty(EXO_OWNER)) {
+            childPage.setOwner(childNode.getProperty(EXO_OWNER).getString());
+          }
+          childPage.makeVersionable();
 //            childPage.checkin();
 //            childPage.checkout();
-            session.save();
-          }
+          session.save();
           //createWikiPages(childNode, childPage.getJCRPageNode());
           srcs.add(childNode);
           targets.add(childPage.getJCRPageNode());
