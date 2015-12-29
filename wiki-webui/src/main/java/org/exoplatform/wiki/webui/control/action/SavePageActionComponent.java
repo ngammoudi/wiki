@@ -17,6 +17,7 @@
 package org.exoplatform.wiki.webui.control.action;
 
 import org.apache.commons.lang.StringUtils;
+import org.exoplatform.commons.utils.StringCommonUtils;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -131,7 +132,7 @@ public class SavePageActionComponent extends UIComponent {
           return;
         }
         if (wikiRichTextArea.isRendered()) {
-          String htmlContent = wikiRichTextArea.getUIFormTextAreaInput().getValue();
+          String htmlContent = StringCommonUtils.encodeScriptMarkup(wikiRichTextArea.getUIFormTextAreaInput().getValue());
           String markupContent = renderingService.render(htmlContent,
                                                          Syntax.XHTML_1_0.toIdString(),
                                                          syntaxId,
