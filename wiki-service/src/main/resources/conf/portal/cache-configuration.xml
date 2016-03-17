@@ -45,8 +45,8 @@
           <description>The wiki page uuid cache configuration</description>
           <object type="org.exoplatform.services.cache.ExoCacheConfig">
             <field name="name"><string>wiki.PageRenderingCache.pageUuid</string></field>
-            <field name="maxSize"><int>${cache.exo.wiki.PageRenderingCache.Capacity:1000}</int></field>
-            <field name="liveTime"><long>${cache.exo.wiki.PageRenderingCache.TimeToLive:-1}</long></field>
+            <field name="maxSize"><int>${cache.exo.wiki.PageRenderingCache.pageUuid.Capacity:1000}</int></field>
+            <field name="liveTime"><long>${cache.exo.wiki.PageRenderingCache.pageUuid.TimeToLive:-1}</long></field>
             <field name="implementation"><string>org.exoplatform.services.cache.concurrent.ConcurrentFIFOExoCache</string></field>
           </object>
         </object-param>
@@ -55,8 +55,8 @@
           <description>The wiki page attachment count cache configuration</description>
           <object type="org.exoplatform.services.cache.ExoCacheConfig">
             <field name="name"><string>wiki.PageRenderingCache.attachment</string></field>
-            <field name="maxSize"><int>${cache.exo.wiki.PageRenderingCache.Capacity:1000}</int></field>
-            <field name="liveTime"><long>${cache.exo.wiki.PageRenderingCache.TimeToLive:-1}</long></field>
+            <field name="maxSize"><int>${cache.exo.wiki.PageRenderingCache.attachment.Capacity:1000}</int></field>
+            <field name="liveTime"><long>${cache.exo.wiki.PageRenderingCache.attachment.TimeToLive:-1}</long></field>
             <field name="implementation"><string>org.exoplatform.services.cache.concurrent.ConcurrentFIFOExoCache</string></field>
           </object>
         </object-param>
@@ -85,8 +85,8 @@
           <object type="org.exoplatform.services.cache.impl.infinispan.generic.GenericExoCacheConfig">
             <field name="name"><string>wiki.PageRenderingCache.pageUuid</string></field>
             <field name="strategy"><string>LIRS</string></field>
-            <field name="maxEntries"><int>${cache.exo.wiki.PageRenderingCache.Capacity:1000}</int></field>
-            <field name="lifespan"><long>${cache.exo.wiki.PageRenderingCache.TimeToLive:-1}</long></field>
+            <field name="maxEntries"><int>${cache.exo.wiki.PageRenderingCache.pageUuid.Capacity:1000}</int></field>
+            <field name="lifespan"><long>${cache.exo.wiki.PageRenderingCache.pageUuid.TimeToLive:-1}</long></field>
             <field name="replicated"><boolean>true</boolean></field>
           </object>
         </object-param>
@@ -96,8 +96,8 @@
           <object type="org.exoplatform.services.cache.impl.infinispan.generic.GenericExoCacheConfig">
             <field name="name"><string>wiki.PageRenderingCache.attachment</string></field>
             <field name="strategy"><string>LIRS</string></field>
-            <field name="maxEntries"><int>${cache.exo.wiki.PageRenderingCache.Capacity:1000}</int></field>
-            <field name="lifespan"><long>${cache.exo.wiki.PageRenderingCache.TimeToLive:-1}</long></field>
+            <field name="maxEntries"><int>${cache.exo.wiki.PageRenderingCache.attachment.Capacity:1000}</int></field>
+            <field name="lifespan"><long>${cache.exo.wiki.PageRenderingCache.attachment.TimeToLive:-1}</long></field>
             <field name="replicated"><boolean>true</boolean></field>
           </object>
         </object-param>
